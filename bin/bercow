@@ -77,7 +77,7 @@ rss.root.add_namespace_definition 'itunes', 'http://www.itunes.com/dtds/podcast-
 rss_host = URI.parse(options['rss']).host
 rss_url = "#{options['host']}#{rss_host}/rss.xml"
 reference = rss.xpath("//channel/atom:link[@rel = 'self']", "atom" => "http://www.w3.org/2005/Atom").to_a[0]
-reference['href'] = rss_url
+reference['href'] = rss_url unless reference.nil?
 
 host_root = File.join options['cache'], rss_host
 rss_feed = File.join host_root, 'rss.xml'
