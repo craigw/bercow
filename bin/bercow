@@ -82,12 +82,27 @@ rss_url = "#{options['host']}#{rss_host}/rss.xml"
 reference = rss.xpath("//channel/atom:link[@rel = 'self']").to_a[0]
 reference['href'] = rss_url
 
-rss_feed = File.join options['cache'], rss_host, 'rss.xml'
+host_root = File.join options['cache'], rss_host
+rss_feed = File.join host_root, 'rss.xml'
 File.open rss_feed, 'w+' do |f|
   f.print rss.to_s
 end
 
+subscribe_file = File.join host_root, 'index.html'
+itpc_url = rss_url.gsub /^http/, 'itpc'
+File.open subscribe_file, 'w+' do |f|
+  f.print <<-HTML
+    <html>
+      <head>
+	<title>Subscribe to #{options['rss']} as a podcast</title>
+      </head>
+      <body>
+	<p>Got iTunes? <a href="#{itpc_url}">Subscribe to #{options['rss']} as a podcast</a>.</p>
+      </body>
+    </html>
+  HTML
+end
+
 if options['verbose']
-  iptc_url = rss_url.gsub /^http/, 'itpc'
-  puts "iTunes users can subscribe at #{iptc_url}"
+  puts "iTunes users can subscribe at #{itpc_url}"
 end
