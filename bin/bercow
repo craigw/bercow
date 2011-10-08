@@ -88,6 +88,6 @@ File.open rss_feed, 'w+' do |f|
 end
 
 if options['verbose']
-  iptc_url = rss_url.gsub /^http/, 'iptc'
+  iptc_url = rss_url.gsub /^http/, 'itpc'
   puts "iTunes users can subscribe at #{iptc_url}"
 end
