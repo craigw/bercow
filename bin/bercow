@@ -1,0 +1,93 @@
+#! /usr/bin/env ruby
+
+require "getoptlong"
+require 'nokogiri'
+require 'open-uri'
+require 'digest/sha1'
+require 'cgi'
+
+options = {}
+argv = GetoptLong.new(
+  [ "--broker",   "-b", GetoptLong::OPTIONAL_ARGUMENT ],
+  [ "--rss",      "-r", GetoptLong::REQUIRED_ARGUMENT ],
+  [ "--cache",    "-c", GetoptLong::OPTIONAL_ARGUMENT ],
+  [ "--host",     "-h", GetoptLong::REQUIRED_ARGUMENT ],
+  [ "--king",     "-k", GetoptLong::OPTIONAL_ARGUMENT ],
+  [ "--verbose",  "-v", GetoptLong::NO_ARGUMENT ],
+)
+argv.each do |option, value|
+  options['broker']   = value if option == '--broker'
+  options['rss']      = value if option == '--rss'
+  options['cache']    = value if option == '--cache'
+  options['host']     = value if option == '--host'
+  options['king']     = value if option == '--king'
+  options['verbose']  = true  if option == '--verbose'
+end
+options['broker'] ||= 'stomp://127.0.0.1:61613'
+options['king']   ||= 'http://127.0.0.1:4567/'
+options['cache']  ||= File.expand_path('../tmp/cache', File.basename(__FILE__))
+
+unless File.exists? options['cache']
+  puts "The cache directory does not exist: #{options['cache']}"
+  exit 1
+end
+
+remove_nodes = %w{
+  content:encoded
+  wfw:commentRss
+  slash:comments
+  description
+  category
+}
+
+rss = Nokogiri::XML open(options['rss']).read
+items = rss.xpath '//channel/item'
+items.to_a.each do |item|
+  item_link = item.xpath(".//link").to_a[0]
+  item_url = item_link.inner_text.to_s
+  article = CGI.escape item_url
+  url = URI.parse item_url
+  cache_key = Digest::SHA1.hexdigest item_url
+  file_dir = [ url.host, *(cache_key.scan(/(.)/)[0..3]) ].inject(options['cache']) { |a, e|
+    dir = File.join a, e
+    Dir.mkdir dir unless File.exists? dir
+    dir
+  }
+  file_path = File.join file_dir, cache_key + '.mp3'
+  url_path = file_path.gsub /^#{options['cache']}\//, ''
+  file_url = "#{options['host']}#{url_path}"
+  guid = item.xpath(".//guid").to_a[0]
+  guid.content = file_url
+  guid['isPermaLink'] = 'true'
+  remove_nodes.each do |node|
+    item.xpath(node).remove
+  end
+  enclosure = Nokogiri::XML::Node.new 'enclosure', rss
+  enclosure['url'] = file_url
+  enclosure['type'] = "audio/mpeg"
+  item << enclosure
+  next if File.exists? file_path
+  print "Encoding #{item_url}... " if options['verbose']
+  mp3 = open(options['king'] + 'read?url=' + article).read
+  File.open file_path, 'w+' do |f|
+    f.print mp3
+  end
+  puts "#{file_path}" if options['verbose']
+end
+
+rss.root.add_namespace_definition 'itunes', 'http://www.itunes.com/dtds/podcast-1.0.dtd'
+
+rss_host = URI.parse(options['rss']).host
+rss_url = "#{options['host']}#{rss_host}/rss.xml"
+reference = rss.xpath("//channel/atom:link[@rel = 'self']").to_a[0]
+reference['href'] = rss_url
+
+rss_feed = File.join options['cache'], rss_host, 'rss.xml'
+File.open rss_feed, 'w+' do |f|
+  f.print rss.to_s
+end
+
+if options['verbose']
+  iptc_url = rss_url.gsub /^http/, 'iptc'
+  puts "iTunes users can subscribe at #{iptc_url}"
+end
