@@ -13,7 +13,7 @@ argv = GetoptLong.new(
   [ "--cache",    "-c", GetoptLong::OPTIONAL_ARGUMENT ],
   [ "--host",     "-h", GetoptLong::REQUIRED_ARGUMENT ],
   [ "--king",     "-k", GetoptLong::OPTIONAL_ARGUMENT ],
-  [ "--verbose",  "-v", GetoptLong::NO_ARGUMENT ],
+  [ "--verbose",  "-v", GetoptLong::NO_ARGUMENT ]
 )
 argv.each do |option, value|
   options['broker']   = value if option == '--broker'
